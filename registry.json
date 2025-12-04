@@ -1,0 +1,19 @@
+{
+    "$schema": "https://ui.shadcn.com/schema/registry.json",
+    "name": "cascader",
+    "homepage": "https://github.com/Ademking/cascader-shadcn",
+    "items": [
+        {
+            "name": "cascader",
+            "type": "registry:component",
+            "title": "Cascader",
+            "description": "A cascading dropdown menu component for selecting hierarchical data like locations, categories, or organizational structures.",
+            "files": [
+                {
+                    "path": "src/components/ui/cascader.tsx",
+                    "type": "registry:component"
+                }
+            ]
+        }
+    ]
+}
