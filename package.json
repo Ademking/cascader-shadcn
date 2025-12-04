@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "registry:build": "shadcn build"
+    "registry:build": "shadcn build",
+    "deploy": "npm run build && npm run registry:build && surge ./dist --domain cascader-shadcn.surge.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

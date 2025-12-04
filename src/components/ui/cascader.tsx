@@ -66,8 +66,11 @@ export function Cascader({
     defaultValue || []
   );
   const [expandedPath, setExpandedPath] = React.useState<string[]>([]);
+  const [focusedColumn, setFocusedColumn] = React.useState(0);
+  const [focusedIndex, setFocusedIndex] = React.useState(0);
   const isMobile = useIsMobile();
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const columnRefs = React.useRef<Map<string, HTMLDivElement>>(new Map());
 
   const selectedValue = value !== undefined ? value : internalValue;
 
@@ -118,6 +121,8 @@ export function Cascader({
 
     if (option.children && option.children.length > 0) {
       setExpandedPath(newPath);
+      setFocusedColumn(columnIndex + 1);
+      setFocusedIndex(0);
       setTimeout(() => {
         if (scrollContainerRef.current) {
           scrollContainerRef.current.scrollTo({
@@ -125,6 +130,8 @@ export function Cascader({
             behavior: "smooth",
           });
         }
+        const key = `${columnIndex + 1}-0`;
+        columnRefs.current.get(key)?.focus();
       }, 50);
     } else {
       const newSelectedOptions = getSelectedOptions(newPath);
@@ -162,18 +169,103 @@ export function Cascader({
     setOpen(false);
   };
 
-  const columns = getColumns();
+  const handleKeyDown = (
+    e: React.KeyboardEvent,
+    option: CascaderOption,
+    columnIndex: number,
+    itemIndex: number,
+    columns: CascaderOption[][] // Pass columns as parameter
+  ) => {
+    const column = columns[columnIndex]; // Use columns parameter instead of options
+    const hasChildren = option.children && option.children.length > 0;
 
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
-    if (newOpen) {
-      setExpandedPath(
-        selectedValue.slice(0, -1).length > 0
-          ? selectedValue.slice(0, -1)
-          : selectedValue
-      );
-    } else {
-      setExpandedPath([]);
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        if (itemIndex < column.length - 1) {
+          const nextIndex = itemIndex + 1;
+          setFocusedIndex(nextIndex);
+          const key = `${columnIndex}-${nextIndex}`;
+          columnRefs.current.get(key)?.focus();
+        }
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        if (itemIndex > 0) {
+          const prevIndex = itemIndex - 1;
+          setFocusedIndex(prevIndex);
+          const key = `${columnIndex}-${prevIndex}`;
+          columnRefs.current.get(key)?.focus();
+        }
+        break;
+
+      case "ArrowRight":
+      case "Enter":
+        e.preventDefault();
+        if (!option.disabled) {
+          if (hasChildren) {
+            handleSelect(option, columnIndex);
+          } else if (e.key === "Enter") {
+            handleSelect(option, columnIndex);
+          }
+        }
+        break;
+
+      case "ArrowLeft":
+      case "Backspace":
+        e.preventDefault();
+        if (columnIndex > 0) {
+          const newPath = expandedPath.slice(0, columnIndex - 1);
+          setExpandedPath(newPath);
+          setFocusedColumn(columnIndex - 1);
+          const parentColumn = columns[columnIndex - 1]; // Use columns parameter
+          const parentValue = expandedPath[columnIndex - 1];
+          const parentIndex = parentColumn.findIndex(
+            (opt) => opt.value === parentValue
+          );
+          setFocusedIndex(parentIndex >= 0 ? parentIndex : 0);
+          setTimeout(() => {
+            const key = `${columnIndex - 1}-${
+              parentIndex >= 0 ? parentIndex : 0
+            }`;
+            columnRefs.current.get(key)?.focus();
+          }, 50);
+        }
+        break;
+
+      case "Escape":
+        e.preventDefault();
+        setOpen(false);
+        setExpandedPath([]);
+        break;
+
+      case "Tab":
+        if (
+          !e.shiftKey &&
+          hasChildren &&
+          expandedPath[columnIndex] === option.value
+        ) {
+          e.preventDefault();
+          setFocusedColumn(columnIndex + 1);
+          setFocusedIndex(0);
+          const key = `${columnIndex + 1}-0`;
+          columnRefs.current.get(key)?.focus();
+        } else if (e.shiftKey && columnIndex > 0) {
+          e.preventDefault();
+          const parentColumn = columns[columnIndex - 1]; // Use columns parameter
+          const parentValue = expandedPath[columnIndex - 1];
+          const parentIndex = parentColumn.findIndex(
+            (opt) => opt.value === parentValue
+          );
+          setFocusedColumn(columnIndex - 1);
+          setFocusedIndex(parentIndex >= 0 ? parentIndex : 0);
+          const key = `${columnIndex - 1}-${
+            parentIndex >= 0 ? parentIndex : 0
+          }`;
+          columnRefs.current.get(key)?.focus();
+        }
+        break;
     }
   };
 
@@ -188,6 +280,7 @@ export function Cascader({
     <div
       role="combobox"
       aria-expanded={open}
+      aria-haspopup="listbox"
       aria-disabled={disabled}
       tabIndex={disabled ? -1 : 0}
       className={cn(
@@ -214,59 +307,116 @@ export function Cascader({
           <X
             className="h-4 w-4 opacity-50 hover:opacity-100 cursor-pointer"
             onClick={handleClear}
+            aria-label="Clear selection"
           />
         )}
-        <ChevronDown className="h-4 w-4 opacity-50" />
+        <ChevronDown className="h-4 w-4 opacity-50" aria-hidden="true" />
       </div>
     </div>
   );
+
+  const columns = getColumns();
 
   const columnsContent = (
     <div
       ref={scrollContainerRef}
       className={cn("flex", isMobile && "overflow-x-auto scrollbar-thin")}
+      role="listbox"
+      aria-label={placeholder}
     >
-      {columns.map((column, columnIndex) => (
-        <div
-          key={columnIndex}
-          className={cn(
-            "min-w-[120px] max-h-[300px] overflow-auto py-1 shrink-0",
-            columnIndex !== columns.length - 1 && "border-r border-border"
-          )}
-        >
-          {column.map((option) => {
-            const isExpanded = expandedPath[columnIndex] === option.value;
-            const isSelected = selectedValue[columnIndex] === option.value;
-            const hasChildren = option.children && option.children.length > 0;
+      {columns.map(
+        (
+          column,
+          columnIndex // Iterate over columns instead of options
+        ) => (
+          <div
+            key={columnIndex}
+            role="group"
+            aria-label={`Level ${columnIndex + 1}`}
+            className={cn(
+              "min-w-[120px] max-h-[300px] overflow-auto py-1 shrink-0",
+              columnIndex !== columns.length - 1 && "border-r border-border" // Use columns.length
+            )}
+          >
+            {column.map((option, itemIndex) => {
+              const isExpanded = expandedPath[columnIndex] === option.value;
+              const isSelected = selectedValue[columnIndex] === option.value;
+              const hasChildren = option.children && option.children.length > 0;
+              const isFocused =
+                focusedColumn === columnIndex && focusedIndex === itemIndex;
+              const refKey = `${columnIndex}-${itemIndex}`;
 
-            return (
-              <div
-                key={option.value}
-                className={cn(
-                  "flex items-center justify-between px-3 py-1.5 cursor-pointer text-sm",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  isSelected && "bg-accent text-accent-foreground",
-                  isExpanded && "bg-accent/50",
-                  option.disabled && "opacity-50 cursor-not-allowed"
-                )}
-                onClick={() => handleSelect(option, columnIndex)}
-                onMouseEnter={() => {
-                  if (expandTrigger === "hover" && hasChildren) {
-                    handleExpand(option, columnIndex);
-                  }
-                }}
-              >
-                <span className="truncate">{option.label}</span>
-                {hasChildren && (
-                  <ChevronRight className="h-4 w-4 ml-2 shrink-0 opacity-50" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              return (
+                <div
+                  key={option.value}
+                  ref={(el) => {
+                    if (el) {
+                      columnRefs.current.set(refKey, el);
+                    } else {
+                      columnRefs.current.delete(refKey);
+                    }
+                  }}
+                  role="option"
+                  aria-selected={isSelected}
+                  aria-disabled={option.disabled}
+                  aria-expanded={hasChildren ? isExpanded : undefined}
+                  tabIndex={isFocused && open ? 0 : -1}
+                  className={cn(
+                    "flex items-center justify-between px-3 py-1.5 cursor-pointer text-sm",
+                    "hover:bg-accent hover:text-accent-foreground",
+                    "focus:bg-accent focus:text-accent-foreground focus:outline-none",
+                    isSelected && "bg-accent text-accent-foreground",
+                    isExpanded && "bg-accent/50",
+                    option.disabled && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={() => handleSelect(option, columnIndex)}
+                  onKeyDown={(e) =>
+                    handleKeyDown(e, option, columnIndex, itemIndex, columns)
+                  } // Pass columns
+                  onMouseEnter={() => {
+                    if (expandTrigger === "hover" && hasChildren) {
+                      handleExpand(option, columnIndex);
+                    }
+                  }}
+                  onFocus={() => {
+                    setFocusedColumn(columnIndex);
+                    setFocusedIndex(itemIndex);
+                  }}
+                >
+                  <span className="truncate">{option.label}</span>
+                  {hasChildren && (
+                    <ChevronRight
+                      className="h-4 w-4 ml-2 shrink-0 opacity-50"
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
     </div>
   );
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (newOpen) {
+      setExpandedPath(
+        selectedValue.slice(0, -1).length > 0
+          ? selectedValue.slice(0, -1)
+          : selectedValue
+      );
+      setFocusedColumn(0);
+      setFocusedIndex(0);
+      setTimeout(() => {
+        const key = `0-0`;
+        columnRefs.current.get(key)?.focus();
+      }, 50);
+    } else {
+      setExpandedPath([]);
+    }
+  };
 
   if (isMobile) {
     return (
