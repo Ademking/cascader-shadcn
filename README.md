@@ -1,73 +1,108 @@
-# React + TypeScript + Vite
+# Cascader-Shadcn
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A cascading dropdown component for selecting hierarchical data such as locations, categories, or organizational structures.
 
-Currently, two official plugins are available:
+**Inspired by:** Cascader components from **Ant Design** and **React Suite**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+* Hierarchical cascading menu
+* Click or hover expansion
+* Supports icons and custom labels
+* Custom display rendering
+* Disable per option or entire component
+* Shadcn-compatible + Tailwind-friendly
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Installation
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### **Using Shadcn CLI**
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npx shadcn@latest add https://cascader-shadcn.surge.sh/r/cascader.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### **Manual Installation**
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copy the [Cascader.tsx](src/components/ui/cascader.tsx) component from the repository into your Shadcn components directory.
 
-export default defineConfig([
-  globalIgnores(['dist']),
+---
+
+## Usage
+
+### **Example.jsx**
+
+```jsx
+import { Cascader } from "@/components/ui/cascader"
+
+const options = [
   {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
+    value: "usa",
+    label: "USA",
+    children: [
+      {
+        value: "new_york",
+        label: "New York",
+        children: [
+          { value: "statue_of_liberty", label: "Statue of Liberty" },
+        ],
       },
-      // other options...
-    },
+    ],
   },
-])
+]
+
+export function MyComponent() {
+  return (
+    <Cascader
+      options={options}
+      onChange={(value, selectedOptions) => {
+        console.log(value, selectedOptions)
+      }}
+      placeholder="Select location"
+    />
+  )
+}
 ```
+
+## API Reference
+
+### **CascaderOption**
+
+| Property    | Type             | Description                                 |
+| ----------- | ---------------- | ------------------------------------------- |
+| `value`     | string           | Unique option identifier                    |
+| `label`     | React.ReactNode  | Display label (text or component)           |
+| `textLabel` | string           | Text label for display; fallback to `value` |
+| `disabled`  | boolean          | Whether this option is disabled             |
+| `children`  | CascaderOption[] | Nested options                              |
+
+---
+
+### **Cascader Props**
+
+| Prop             | Type                           | Default           | Description                      |
+| ---------------- | ------------------------------ | ----------------- | -------------------------------- |
+| `options`        | CascaderOption[]               | —                 | Cascader data options            |
+| `value`          | string[]                       | —                 | Controlled selected value        |
+| `defaultValue`   | string[]                       | —                 | Initial selected value           |
+| `onChange`       | (value, options) => void       | —                 | Triggered when selection changes |
+| `placeholder`    | string                         | `"Please select"` | Placeholder text                 |
+| `disabled`       | boolean                        | `false`           | Disable the component            |
+| `allowClear`     | boolean                        | `true`            | Show clear button                |
+| `expandTrigger`  | `"click" \| "hover"`           | `"click"`         | How nested options expand        |
+| `displayRender`  | (labels, options) => ReactNode | —                 | Custom display function          |
+| `className`      | string                         | —                 | Trigger className                |
+| `popupClassName` | string                         | —                 | Dropdown className               |
+
+---
+
+## Author
+
+Built With 🍪 by [**Adem Kouki**](https://github.com/Ademking)
+
+## Licence
+
+MIT
