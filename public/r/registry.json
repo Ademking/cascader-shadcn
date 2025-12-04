@@ -8,10 +8,22 @@
             "type": "registry:component",
             "title": "Cascader",
             "description": "A cascading dropdown menu component for selecting hierarchical data like locations, categories, or organizational structures.",
+            "registryDependencies": [
+                "popover",
+                "drawer",
+                "use-mobile"
+            ],
+            "dependencies": [
+                "lucide-react"
+            ],
             "files": [
                 {
                     "path": "src/components/ui/cascader.tsx",
                     "type": "registry:component"
+                },
+                {
+                    "path": "src/hooks/use-mobile.tsx",
+                    "type": "registry:hook"
                 }
             ]
         }

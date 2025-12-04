@@ -8,11 +8,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface CascaderOption {
   value: string;
   label: React.ReactNode;
-  textLabel?: string; // Optional string label for display rendering, falls back to value if not provided
+  textLabel?: string;
   disabled?: boolean;
   children?: CascaderOption[];
 }
@@ -58,10 +66,11 @@ export function Cascader({
     defaultValue || []
   );
   const [expandedPath, setExpandedPath] = React.useState<string[]>([]);
+  const isMobile = useIsMobile();
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   const selectedValue = value !== undefined ? value : internalValue;
 
-  // Get the columns to display based on expanded path
   const getColumns = React.useCallback(() => {
     const columns: CascaderOption[][] = [options];
     let currentOptions = options;
@@ -79,7 +88,6 @@ export function Cascader({
     return columns;
   }, [options, expandedPath]);
 
-  // Get selected options chain from value
   const getSelectedOptions = React.useCallback(
     (vals: string[]): CascaderOption[] => {
       const result: CascaderOption[] = [];
@@ -109,10 +117,16 @@ export function Cascader({
     const newPath = [...expandedPath.slice(0, columnIndex), option.value];
 
     if (option.children && option.children.length > 0) {
-      // Has children, expand to show next column
       setExpandedPath(newPath);
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({
+            left: scrollContainerRef.current.scrollWidth,
+            behavior: "smooth",
+          });
+        }
+      }, 50);
     } else {
-      // Leaf node, complete selection
       const newSelectedOptions = getSelectedOptions(newPath);
       if (value === undefined) {
         setInternalValue(newPath);
@@ -127,6 +141,14 @@ export function Cascader({
     if (option.disabled) return;
     const newPath = [...expandedPath.slice(0, columnIndex), option.value];
     setExpandedPath(newPath);
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          left: scrollContainerRef.current.scrollWidth,
+          behavior: "smooth",
+        });
+      }
+    }, 50);
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -142,11 +164,9 @@ export function Cascader({
 
   const columns = getColumns();
 
-  // Reset expanded path when opening
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen) {
-      // Initialize expanded path based on current selected value
       setExpandedPath(
         selectedValue.slice(0, -1).length > 0
           ? selectedValue.slice(0, -1)
@@ -164,90 +184,118 @@ export function Cascader({
         : displayLabels.join(" / ")
       : null;
 
+  const triggerElement = (
+    <div
+      role="combobox"
+      aria-expanded={open}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      className={cn(
+        "inline-flex items-center justify-between gap-2 whitespace-nowrap rounded-md text-sm ring-offset-background transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        "h-10 px-4 py-2 w-[200px] cursor-pointer",
+        !displayValue && "text-muted-foreground",
+        disabled && "pointer-events-none opacity-50",
+        className
+      )}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!disabled) setOpen(!open);
+        }
+      }}
+    >
+      <span className="truncate flex-1 text-left font-normal">
+        {displayValue || placeholder}
+      </span>
+      <div className="flex items-center gap-1 shrink-0">
+        {allowClear && displayValue && !disabled && (
+          <X
+            className="h-4 w-4 opacity-50 hover:opacity-100 cursor-pointer"
+            onClick={handleClear}
+          />
+        )}
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </div>
+    </div>
+  );
+
+  const columnsContent = (
+    <div
+      ref={scrollContainerRef}
+      className={cn("flex", isMobile && "overflow-x-auto scrollbar-thin")}
+    >
+      {columns.map((column, columnIndex) => (
+        <div
+          key={columnIndex}
+          className={cn(
+            "min-w-[120px] max-h-[300px] overflow-auto py-1 shrink-0",
+            columnIndex !== columns.length - 1 && "border-r border-border"
+          )}
+        >
+          {column.map((option) => {
+            const isExpanded = expandedPath[columnIndex] === option.value;
+            const isSelected = selectedValue[columnIndex] === option.value;
+            const hasChildren = option.children && option.children.length > 0;
+
+            return (
+              <div
+                key={option.value}
+                className={cn(
+                  "flex items-center justify-between px-3 py-1.5 cursor-pointer text-sm",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  isSelected && "bg-accent text-accent-foreground",
+                  isExpanded && "bg-accent/50",
+                  option.disabled && "opacity-50 cursor-not-allowed"
+                )}
+                onClick={() => handleSelect(option, columnIndex)}
+                onMouseEnter={() => {
+                  if (expandTrigger === "hover" && hasChildren) {
+                    handleExpand(option, columnIndex);
+                  }
+                }}
+              >
+                <span className="truncate">{option.label}</span>
+                {hasChildren && (
+                  <ChevronRight className="h-4 w-4 ml-2 shrink-0 opacity-50" />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={handleOpenChange}>
+        <DrawerTrigger asChild disabled={disabled}>
+          {triggerElement}
+        </DrawerTrigger>
+        <DrawerContent className={cn("px-0", popupClassName)}>
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-sm font-medium">
+              {placeholder}
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6">{columnsContent}</div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild disabled={disabled}>
-        <div
-          role="combobox"
-          aria-expanded={open}
-          aria-disabled={disabled}
-          tabIndex={disabled ? -1 : 0}
-          className={cn(
-            "inline-flex items-center justify-between gap-2 whitespace-nowrap rounded-md text-sm ring-offset-background transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-            "h-10 px-4 py-2 w-[200px] cursor-pointer",
-            !displayValue && "text-muted-foreground",
-            disabled && "pointer-events-none opacity-50",
-            className
-          )}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              if (!disabled) setOpen(!open);
-            }
-          }}
-        >
-          <span className="truncate flex-1 text-left font-normal">
-            {displayValue || placeholder}
-          </span>
-          <div className="flex items-center gap-1 shrink-0">
-            {allowClear && displayValue && !disabled && (
-              <X
-                className="h-4 w-4 opacity-50 hover:opacity-100 cursor-pointer"
-                onClick={handleClear}
-              />
-            )}
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          </div>
-        </div>
+        {triggerElement}
       </PopoverTrigger>
       <PopoverContent
         className={cn("w-auto p-0", popupClassName)}
         align="start"
       >
-        <div className="flex">
-          {columns.map((column, columnIndex) => (
-            <div
-              key={columnIndex}
-              className={cn(
-                "min-w-[120px] max-h-[300px] overflow-auto py-1",
-                columnIndex !== columns.length - 1 && "border-r border-border"
-              )}
-            >
-              {column.map((option) => {
-                const isExpanded = expandedPath[columnIndex] === option.value;
-                const isSelected = selectedValue[columnIndex] === option.value;
-                const hasChildren =
-                  option.children && option.children.length > 0;
-
-                return (
-                  <div
-                    key={option.value}
-                    className={cn(
-                      "flex items-center justify-between px-3 py-1.5 cursor-pointer text-sm",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      isSelected && "bg-accent text-accent-foreground",
-                      isExpanded && "bg-accent/50",
-                      option.disabled && "opacity-50 cursor-not-allowed"
-                    )}
-                    onClick={() => handleSelect(option, columnIndex)}
-                    onMouseEnter={() => {
-                      if (expandTrigger === "hover" && hasChildren) {
-                        handleExpand(option, columnIndex);
-                      }
-                    }}
-                  >
-                    <span className="truncate">{option.label}</span>
-                    {hasChildren && (
-                      <ChevronRight className="h-4 w-4 ml-2 shrink-0 opacity-50" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
+        {columnsContent}
       </PopoverContent>
     </Popover>
   );
